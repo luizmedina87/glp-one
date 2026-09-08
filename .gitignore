@@ -1,0 +1,56 @@
+# ==========================================
+# macOS System Files
+# ==========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Icon
+
+# ==========================================
+# Python Caches and Compiled Files
+# ==========================================
+__pycache__/
+*.py[cod]
+*.class
+*.so
+
+# ==========================================
+# Virtual Environments (Dependencies)
+# ==========================================
+.venv/
+venv/
+ENV/
+env/
+育env/
+.env/
+
+# ==========================================
+# Secrets and Environment Variables
+# ==========================================
+.env
+.env.local
+.env.*.local
+*.env
+*.secrets
+
+# ==========================================
+# Testing, Coverage, and Caches
+# ==========================================
+.pytest_cache/
+.tox/
+.coverage
+.cache/
+htmlcov/
+*.log
+
+# ==========================================
+# IDEs and Code Editors
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
