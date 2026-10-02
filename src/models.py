@@ -4,16 +4,16 @@ from datetime import date, timedelta
 
 
 class DailyLog:
-    def __init__(self, entry_date: date, weight: float | None, calories: int | None):
+    def __init__(self, entry_date: date, calories_tm1: int | None, weight_t: float | None):
         self.entry_date = entry_date
-        self.weight = weight
-        self.calories = calories
-        self.weight_smoothed = None
-        self.tdee = None
-        self.tdee_smoothed = None
+        self.calories_tm1 = calories_tm1 # input in t. You only know how many calories you consumed the next day.
+        self.weight_t = weight_t
+        self.weight_smoothed_t = None # calculate in t
+        self.tdee_t = None # calculate in t+1
+        self.tdee_smoothed_t = None # calculate in t+1
 
     def __repr__(self) -> str:
-        return f"DailyLog(entry_date={self.entry_date}, weight={self.weight}, calories={self.calories}, weight_smoothed={self.weight_smoothed}, tdee={self.tdee}, tdee_smoothed={self.tdee_smoothed})"
+        return f"DailyLog(entry_date={self.entry_date}, weight_t={self.weight_t}, weight_smoothed_t={self.weight_smoothed_t}, calories_tm1={self.calories_tm1}, tdee_t={self.tdee_t}, tdee_smoothed_t={self.tdee_smoothed_t})"
 
     def to_dict(self) -> dict:
         return {
