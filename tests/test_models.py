@@ -72,3 +72,11 @@ def test_user_log_to_dict(sample_tracker):
     assert "logs" in dict_data
     assert len(dict_data["logs"]) == 36
     assert dict_data["logs"][0]["entry_date"] == "2026-07-03"
+
+
+def test_user_log_to_json(sample_tracker):
+    dict_data = json.loads(sample_tracker.to_json())
+
+    assert "logs" in dict_data
+    assert len(dict_data["logs"]) == 36
+    assert dict_data["logs"][0]["entry_date"] == "2026-07-03"

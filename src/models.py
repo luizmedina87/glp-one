@@ -52,3 +52,6 @@ class UserLog:
 
     def to_dict(self) -> dict:
         return {"logs": [log.to_dict() for log in self.logs]}
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2)
