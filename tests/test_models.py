@@ -1,6 +1,7 @@
 import json
 from datetime import date
-from src.models import DailyLog, UserLog
+from src.models import DailyLog, UserLog, User
+from pathlib import Path
 
 
 def test_daily_log_initialization():
@@ -80,3 +81,20 @@ def test_user_log_to_json(sample_tracker):
     assert "logs" in dict_data
     assert len(dict_data["logs"]) == 36
     assert dict_data["logs"][0]["entry_date"] == "2026-07-03"
+
+
+def test_user_save(tmp_path, monkeypatch, sample_tracker):
+    # Redirect Path.home() to pytest's temporary directory
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    user = User(user_name="test_user")
+    user.user_log = sample_tracker
+    user.save()
+
+    expected_file = tmp_path / ".glp-one" / "test_user.json"
+    assert expected_file.exists()
+
+    file_content = json.loads(expected_file.read_text(encoding="utf-8"))
+    assert "logs" in file_content
+    assert len(file_content["logs"]) == 36
+    assert file_content["logs"][0]["entry_date"] == "2026-07-03"

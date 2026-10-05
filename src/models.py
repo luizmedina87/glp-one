@@ -1,6 +1,7 @@
 import json
 
 from datetime import date
+from pathlib import Path
 
 
 class DailyLog:
@@ -34,6 +35,12 @@ class User:
     def __init__(self, user_name: str):
         self.user_name: str = user_name
         self.user_log: UserLog = UserLog()
+
+    def save(self):
+        data_dir = Path.home() / ".glp-one"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        file_path = data_dir / f"{self.user_name}.json"
+        file_path.write_text(self.user_log.to_json(), encoding="utf-8")
 
 
 class UserLog:
