@@ -1,31 +1,74 @@
 import json
-
-from src.models import DailyLog, LogTracker
 from datetime import date
+from src.models import DailyLog, UserLog
 
 
-def test_log():
+def test_daily_log_initialization():
     test_date = date(2026, 10, 1)
-    log = DailyLog(test_date, 72.5, 1900)
-    assert log.weight == 72.5
+    log = DailyLog(entry_date=test_date, weight_t=72.5, calories_tm1=1900)
+
     assert log.entry_date == test_date
-    assert log.calories == 1900
+    assert log.weight_t == 72.5
+    assert log.calories_tm1 == 1900
+    assert log.weight_smoothed_t is None
 
-def test_log_to_dict():
+
+def test_daily_log_to_dict():
     test_date = date(2026, 10, 1)
-    log = DailyLog(test_date, 72.5, 1900)
-    assert log.to_dict() == {
-        "entry_date": "2026-10-01",
-        "weight": 72.5,
-        "calories": 1900,
-    }
+    log = DailyLog(entry_date=test_date, weight_t=72.5, calories_tm1=1900)
 
-def test_log_to_json():
+    expected = {
+        "entry_date": "2026-10-01",
+        "calories_tm1": 1900,
+        "weight_t": 72.5,
+        "weight_smoothed_t": None,
+        "tdee_t": None,
+        "tdee_smoothed_t": None,
+    }
+    assert log.to_dict() == expected
+
+
+def test_daily_log_to_json():
     test_date = date(2026, 10, 1)
-    log = DailyLog(test_date, 72.5, 1900)
-    assert json.loads(log.to_json()) == {
-        "entry_date": "2026-10-01",
-        "weight": 72.5,
-        "calories": 1900,
-    }
+    log = DailyLog(entry_date=test_date, weight_t=72.5, calories_tm1=1900)
 
+    data = json.loads(log.to_json())
+    assert data["entry_date"] == "2026-10-01"
+    assert data["weight_t"] == 72.5
+    assert data["calories_tm1"] == 1900
+    assert data["weight_smoothed_t"] == None
+    assert data["tdee_t"] == None
+    assert data["tdee_smoothed_t"] == None
+
+
+def test_sample_tracker_length(sample_tracker):
+    # sample_tracker from conftest.py
+    assert isinstance(sample_tracker, UserLog)
+    assert len(sample_tracker.logs) == 36
+
+
+def test_sample_tracker_chronological_order(sample_tracker):
+    # Verifies sorting logic puts earliest date first
+    assert sample_tracker.logs[0].entry_date == date(2026, 7, 3)
+    assert sample_tracker.logs[-1].entry_date == date(2026, 8, 7)
+
+
+def test_sample_tracker_missing_calories(sample_tracker):
+    # Verifies July 27 entry handled None for calories correctly
+    july_27_log = next(
+        log for log in sample_tracker.logs if log.entry_date == date(2026, 7, 27)
+    )
+    assert july_27_log.entry_date == date(2026, 7, 27)
+    assert july_27_log.weight_t == 70.2
+    assert july_27_log.calories_tm1 == None
+    assert july_27_log.weight_smoothed_t is None
+    assert july_27_log.tdee_t == None
+    assert july_27_log.tdee_smoothed_t == None
+
+
+def test_user_log_to_dict(sample_tracker):
+    dict_data = sample_tracker.to_dict()
+
+    assert "logs" in dict_data
+    assert len(dict_data["logs"]) == 36
+    assert dict_data["logs"][0]["entry_date"] == "2026-07-03"
