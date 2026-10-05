@@ -1,7 +1,7 @@
 # tests/conftest.py
 import pytest
 from datetime import date
-from src.models import DailyLog, LogTracker
+from src.models import DailyLog, UserLog
 
 HISTORICAL_LOG_DATA = [
     (date(2026, 7, 3), 72.5, 1900),
@@ -45,8 +45,8 @@ HISTORICAL_LOG_DATA = [
 
 @pytest.fixture
 def sample_tracker():
-    """Provides a fully populated LogTracker pre-loaded with historical data."""
-    tracker = LogTracker()
+    """Provides a fully populated UserLog pre-loaded with historical data."""
+    tracker = UserLog()
     for entry_date, weight, calories in HISTORICAL_LOG_DATA:
         tracker.log_entry(DailyLog(entry_date, weight, calories))
     return tracker
