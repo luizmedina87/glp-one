@@ -1,7 +1,9 @@
 import json
+
 from datetime import date
-from src.models import DailyLog, UserLog, User
 from pathlib import Path
+from src.models import DailyLog, UserLog, User
+from src.glp_one.config import APP_NAME
 
 
 def test_daily_log_initialization():
@@ -91,7 +93,7 @@ def test_user_save(tmp_path, monkeypatch, sample_tracker):
     user.user_log = sample_tracker
     user.save()
 
-    expected_file = tmp_path / ".glp-one" / "test_user.json"
+    expected_file = tmp_path / f".{APP_NAME}" / "test_user.json"
     assert expected_file.exists()
 
     file_content = json.loads(expected_file.read_text(encoding="utf-8"))

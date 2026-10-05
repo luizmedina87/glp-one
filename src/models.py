@@ -2,6 +2,7 @@ import json
 
 from datetime import date
 from pathlib import Path
+from src.glp_one.config import get_data_dir
 
 
 class DailyLog:
@@ -37,10 +38,12 @@ class User:
         self.user_log: UserLog = UserLog()
 
     def save(self):
-        data_dir = Path.home() / ".glp-one"
-        data_dir.mkdir(parents=True, exist_ok=True)
-        file_path = data_dir / f"{self.user_name}.json"
+        file_path = get_data_dir() / f"{self.user_name}.json"
         file_path.write_text(self.user_log.to_json(), encoding="utf-8")
+
+    def load(self):
+        # get_data_dir() = Path.home() / 
+        pass
 
 
 class UserLog:
