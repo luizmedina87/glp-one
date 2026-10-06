@@ -203,8 +203,125 @@ def test_user_load_or_create_existing(tmp_path, monkeypatch):
 
 def test_user_load_or_create_new(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    
+
     user = User.load_or_create("new_user")
 
     assert user.user_name == "new_user"
     assert len(user.user_log.logs) == 0
+
+
+def test_user_log_find_log():
+    log1 = DailyLog(entry_date=date(2026, 10, 1), weight_t=70.0, calories_tm1=2000)
+    log2 = DailyLog(entry_date=date(2026, 10, 5), weight_t=70.5, calories_tm1=2100)
+    user_log = UserLog(logs=[log1, log2])
+
+    assert user_log.find_log(date(2026, 10, 1)) == 0
+    assert user_log.find_log(date(2026, 10, 5)) == 1
+    assert user_log.find_log(date(2026, 10, 10)) == -1
+
+
+def test_user_log_get_entry():
+    target_date = date(2026, 10, 1)
+    log = DailyLog(entry_date=target_date, weight_t=70.0, calories_tm1=2000)
+    user_log = UserLog(logs=[log])
+
+    retrieved = user_log.get_entry(target_date)
+    assert retrieved is not None
+    assert retrieved.entry_date == target_date
+    assert retrieved.weight_t == 70.0
+
+    assert user_log.get_entry(date(2026, 10, 9)) is None
+
+
+def test_user_log_upsert_entry_insert():
+    user_log = UserLog(
+        logs=[
+            DailyLog(entry_date=date(2026, 10, 1), weight_t=70.0, calories_tm1=2000),
+            DailyLog(entry_date=date(2026, 10, 3), weight_t=71.0, calories_tm1=2000),
+        ]
+    )
+
+    # Insert a log out-of-order
+    new_log = DailyLog(
+        entry_date=date(2026, 10, 2), weight_t=70.5, calories_tm1=1950
+    )
+    user_log.upsert_entry(new_log)
+
+    assert len(user_log.logs) == 3
+    # Ensures sorting was triggered automatically
+    assert user_log.logs[1].entry_date == date(2026, 10, 2)
+    assert user_log.logs[1].weight_t == 70.5
+
+
+def test_user_log_upsert_entry_update():
+    target_date = date(2026, 10, 1)
+    user_log = UserLog(
+        logs=[
+            DailyLog(entry_date=target_date, weight_t=70.0, calories_tm1=2000)
+        ]
+    )
+
+    # Overwrite the entry for the same date
+    updated_log = DailyLog(
+        entry_date=target_date, weight_t=72.5, calories_tm1=2200
+    )
+    user_log.upsert_entry(updated_log)
+
+    assert len(user_log.logs) == 1  # No duplicate created
+    entry = user_log.get_entry(target_date)
+    assert entry is not None
+    assert entry.weight_t == 72.5
+    assert entry.calories_tm1 == 2200
+
+
+def test_user_log_delete_entry():
+    target_date = date(2026, 10, 1)
+    user_log = UserLog(
+        logs=[
+            DailyLog(entry_date=target_date, weight_t=70.0, calories_tm1=2000)
+        ]
+    )
+
+    # Delete non-existent entry
+    assert user_log.delete_entry(date(2026, 10, 9)) is False
+    assert len(user_log.logs) == 1
+
+    # Delete existing entry
+    assert user_log.delete_entry(target_date) is True
+    assert len(user_log.logs) == 0
+    assert user_log.get_entry(target_date) is None
+
+
+def test_user_get_data_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    path = User.get_data_path("test_user")
+    assert path == tmp_path / f".{APP_NAME}" / "test_user.json"
+
+    user = User("test_user")
+    assert user.data_path == path
+
+
+def test_user_rename(tmp_path, monkeypatch, sample_tracker):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    # Save initial user
+    user = User(user_name="old_name", user_log=sample_tracker)
+    user.save()
+
+    old_file = User.get_data_path("old_name")
+    new_file = User.get_data_path("new_name")
+
+    assert old_file.exists()
+    assert not new_file.exists()
+
+    # Rename
+    user.rename("new_name")
+
+    assert user.user_name == "new_name"
+    assert not old_file.exists()
+    assert new_file.exists()
+
+    # Verify content was preserved
+    loaded_content = json.loads(new_file.read_text(encoding="utf-8"))
+    assert len(loaded_content["logs"]) == len(sample_tracker.logs)

@@ -31,19 +31,6 @@ class DailyLog:
         attributes = ",\n ".join(f"{k}={v!r}" for k, v in self.__dict__.items())
         return f"DailyLog(\n {attributes}\n)"
     
-    def to_dict(self) -> dict:
-        return {
-            "entry_date": self.entry_date.isoformat(),
-            "weight_t": self.weight_t,
-            "calories_tm1": self.calories_tm1,
-            "weight_smoothed_t": self.weight_smoothed_t,
-            "tdee_t": self.tdee_t,
-            "tdee_smoothed_t": self.tdee_smoothed_t,
-        }
-
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict(), indent=2)
-
     @classmethod
     def from_dict(cls, data: dict) -> DailyLog:
         return cls(
@@ -59,6 +46,20 @@ class DailyLog:
     def from_json(cls, json_str: str) -> DailyLog:
         data_dict = json.loads(json_str)
         return cls.from_dict(data_dict)
+    
+    def to_dict(self) -> dict:
+        return {
+            "entry_date": self.entry_date.isoformat(),
+            "weight_t": self.weight_t,
+            "calories_tm1": self.calories_tm1,
+            "weight_smoothed_t": self.weight_smoothed_t,
+            "tdee_t": self.tdee_t,
+            "tdee_smoothed_t": self.tdee_smoothed_t,
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2)
+
 
 
 class UserLog:
@@ -67,19 +68,6 @@ class UserLog:
 
     def __repr__(self) -> str:
         return f"LogTracker({self.logs})"
-
-    def log_entry(self, daily_log: DailyLog) -> None:
-        self.logs.append(daily_log)
-        self.sort()
-
-    def sort(self) -> None:
-        self.logs.sort(key=lambda entry: entry.entry_date)
-
-    def to_dict(self) -> dict:
-        return {"logs": [log.to_dict() for log in self.logs]}
-
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict(), indent=2)
 
     @classmethod
     def from_dict(cls, data: dict) -> UserLog:
@@ -90,6 +78,43 @@ class UserLog:
     def from_json(cls, json_str: str) -> UserLog:
         data_dict = json.loads(json_str)
         return cls.from_dict(data_dict)
+    
+    def log_entry(self, daily_log: DailyLog) -> None:
+        self.logs.append(daily_log)
+        self.sort()
+
+    def sort(self) -> None:
+        self.logs.sort(key=lambda entry: entry.entry_date)
+
+    def find_log(self, entry_date: date) -> int:
+        for idx, log in enumerate(self.logs):
+            if log.entry_date == entry_date:
+                return idx
+        return -1
+
+    def get_entry(self, entry_date: date) -> DailyLog | None:
+        idx = self.find_log(entry_date)
+        return None if idx == -1 else self.logs[idx]
+
+    def upsert_entry(self, new_log: DailyLog) -> None:
+        idx = self.find_log(new_log.entry_date)
+        if idx != -1:
+            self.logs[idx] = new_log
+        else:
+            self.log_entry(new_log)
+
+    def delete_entry(self, entry_date: date) -> bool:
+        idx = self.find_log(entry_date)
+        if idx != -1:
+            del self.logs[idx]
+            return True
+        return False
+
+    def to_dict(self) -> dict:
+        return {"logs": [log.to_dict() for log in self.logs]}
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2)
 
 
 class User:
@@ -99,9 +124,18 @@ class User:
 
     @property
     def data_path(self) -> Path:
-        return get_data_dir() / f"{self.user_name}.json"
-
-
+        return User.get_data_path(self.user_name)
+    
+    @classmethod
+    def get_data_path(cls, user_name: str) -> Path:
+        return get_data_dir() / f"{user_name}.json"
+        
+    @classmethod
+    def load_or_create(cls, user_name: str) -> User:
+        user = cls(user_name=user_name)
+        user.load()
+        return user
+    
     def save(self) -> None:
         self.data_path.write_text(self.user_log.to_json(), encoding="utf-8")
 
@@ -110,8 +144,9 @@ class User:
             json_str = self.data_path.read_text(encoding="utf-8")
             self.user_log = UserLog.from_json(json_str)
 
-    @classmethod
-    def load_or_create(cls, user_name: str) -> User:
-        user = cls(user_name=user_name)
-        user.load()
-        return user 
+    def rename(self, new_name: str) -> None:
+        old_path = self.data_path
+        self.user_name = new_name
+        if old_path.exists():
+            self.save()
+            old_path.unlink()
