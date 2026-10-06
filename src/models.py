@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 
 from datetime import date
@@ -6,13 +8,24 @@ from src.glp_one.config import get_data_dir
 
 
 class DailyLog:
-    def __init__(self, entry_date: date, weight_t: float | None, calories_tm1: int | None):
-        self.entry_date = entry_date
-        self.calories_tm1 = calories_tm1 # input in t. You only know how many calories you consumed the next day.
-        self.weight_t = weight_t
-        self.weight_smoothed_t = None # calculate in t
-        self.tdee_t = None # calculate in t+1
-        self.tdee_smoothed_t = None # calculate in t+1
+    def __init__(
+            self, 
+            entry_date: date, 
+            weight_t: float | None, 
+            calories_tm1: int | None,
+            weight_smoothed_t: float | None = None,
+            tdee_t: float | None = None,
+            tdee_smoothed_t: float | None = None
+        ):
+        if isinstance(entry_date, str):
+            self.entry_date: date = date.fromisoformat(entry_date)
+        else:
+            self.entry_date: date = entry_date
+        self.weight_t: float | None = weight_t
+        self.calories_tm1: int | None = calories_tm1 # input in t. You only know how many calories you consumed the next day.
+        self.weight_smoothed_t: float | None = weight_smoothed_t # calculate in t
+        self.tdee_t: float | None = tdee_t # calculate in t+1
+        self.tdee_smoothed_t: float | None = tdee_smoothed_t # calculate in t+1
 
     def __repr__(self) -> str:
         attributes = ",\n ".join(f"{k}={v!r}" for k, v in self.__dict__.items())
@@ -31,24 +44,26 @@ class DailyLog:
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), indent=2)
 
+    @classmethod
+    def from_dict(cls, data: dict) -> DailyLog:
+        return cls(
+            entry_date=data["entry_date"],
+            weight_t=data.get("weight_t"),
+            calories_tm1=data.get("calories_tm1"),
+            weight_smoothed_t=data.get("weight_smoothed_t"),
+            tdee_t=data.get("tdee_t"),
+            tdee_smoothed_t=data.get("tdee_smoothed_t")
+        )
 
-class User:
-    def __init__(self, user_name: str):
-        self.user_name: str = user_name
-        self.user_log: UserLog = UserLog()
-
-    def save(self):
-        file_path = get_data_dir() / f"{self.user_name}.json"
-        file_path.write_text(self.user_log.to_json(), encoding="utf-8")
-
-    def load(self):
-        # get_data_dir() = Path.home() / 
-        pass
+    @classmethod
+    def from_json(cls, json_str: str) -> DailyLog:
+        data_dict = json.loads(json_str)
+        return cls.from_dict(data_dict)
 
 
 class UserLog:
-    def __init__(self):
-        self.logs: list[UserLog] = []
+    def __init__(self, logs: list[DailyLog] | None = None):
+        self.logs: list[DailyLog] = logs if logs is not None else []
 
     def __repr__(self) -> str:
         return f"LogTracker({self.logs})"
@@ -65,3 +80,38 @@ class UserLog:
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), indent=2)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> UserLog:
+        log_entries = [DailyLog.from_dict(item) for item in data.get("logs", [])]
+        return cls(logs=log_entries)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> UserLog:
+        data_dict = json.loads(json_str)
+        return cls.from_dict(data_dict)
+
+
+class User:
+    def __init__(self, user_name: str, user_log: UserLog | None = None):
+        self.user_name: str = user_name
+        self.user_log: UserLog = UserLog() if user_log is None else user_log
+
+    @property
+    def data_path(self) -> Path:
+        return get_data_dir() / f"{self.user_name}.json"
+
+
+    def save(self) -> None:
+        self.data_path.write_text(self.user_log.to_json(), encoding="utf-8")
+
+    def load(self) -> None:
+        if self.data_path.exists():
+            json_str = self.data_path.read_text(encoding="utf-8")
+            self.user_log = UserLog.from_json(json_str)
+
+    @classmethod
+    def load_or_create(cls, user_name: str) -> User:
+        user = cls(user_name=user_name)
+        user.load()
+        return user 
