@@ -2,7 +2,7 @@ import json
 
 from datetime import date
 from pathlib import Path
-from src.models import DailyLog, UserLog, User
+from src.glp_one.models import DailyLog, UserLog, User
 from src.glp_one.config import APP_NAME
 
 

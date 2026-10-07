@@ -1,7 +1,7 @@
 # tests/conftest.py
 import pytest
 from datetime import date
-from src.models import DailyLog, UserLog
+from src.glp_one.models import DailyLog, UserLog
 
 HISTORICAL_LOG_DATA = [
     (date(2026, 7, 3), 72.5, 1900),
