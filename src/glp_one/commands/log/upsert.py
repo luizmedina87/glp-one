@@ -15,8 +15,9 @@ def upsert(
     ):
     user = User.load_or_create(username)
     if not user.data_path.exists():
-        return print(f"{username} doesn't exist. Upsert canceled.")
+        print(f"{username} doesn't exist. Upsert canceled.")
+        return
     new_log = DailyLog(date, weight_t, calories_tm1)
     user.user_log.upsert_entry(new_log)
     user.save()
-    print(f"Upserting entry for {username} at {date} with {weight_t} {calories_tm1}")
+    print(f"Upserted entry for {username} at {date} with {weight_t} {calories_tm1}")
