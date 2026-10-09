@@ -104,6 +104,8 @@ class UserLog:
             self.log_entry(new_log)
 
     def delete_entry(self, entry_date: date) -> bool:
+        if isinstance(entry_date, str):
+                entry_date = date.fromisoformat(entry_date)
         idx = self.find_log(entry_date)
         if idx != -1:
             del self.logs[idx]
