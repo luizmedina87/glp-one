@@ -150,3 +150,7 @@ class User:
         if old_path.exists():
             self.save()
             old_path.unlink()
+
+    def delete(self) -> None:
+        if self.data_path.exists():
+            self.data_path.unlink()
