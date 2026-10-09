@@ -4,7 +4,7 @@ import json
 
 from datetime import date
 from pathlib import Path
-from src.glp_one.config import get_data_dir
+from glp_one.config import get_data_dir
 
 
 class DailyLog:
