@@ -137,12 +137,15 @@ class User:
         user = cls(user_name=user_name)
         user.load()
         return user
+
+    def exists(self) -> bool:
+        return self.data_path.exists()
     
     def save(self) -> None:
         self.data_path.write_text(self.user_log.to_json(), encoding="utf-8")
 
     def load(self) -> None:
-        if self.data_path.exists():
+        if self.exists():
             json_str = self.data_path.read_text(encoding="utf-8")
             self.user_log = UserLog.from_json(json_str)
 
@@ -154,5 +157,5 @@ class User:
             old_path.unlink()
 
     def delete(self) -> None:
-        if self.data_path.exists():
+        if self.exists():
             self.data_path.unlink()
