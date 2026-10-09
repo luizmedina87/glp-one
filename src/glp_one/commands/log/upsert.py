@@ -1,5 +1,6 @@
 import typer
 
+from glp_one.models import User, DailyLog
 from typing import Annotated
 
 
@@ -12,4 +13,10 @@ def upsert(
         weight_t: Annotated[str, typer.Option("--weight", "-w", help="Weight measured as of date.")] = None, 
         calories_tm1: Annotated[int, typer.Option("--calories", "-c", help="Calories consumed in t-1")] = None
     ):
-    print(f"Inserting (or updating) entry for {username} at {date} with {weight_t} {calories_tm1}")
+    user = User.load_or_create(username)
+    if not user.data_path.exists():
+        return print(f"{username} doesn't exist. Upsert canceled.")
+    new_log = DailyLog(date, weight_t, calories_tm1)
+    user.user_log.upsert_entry(new_log)
+    user.save()
+    print(f"Upserting entry for {username} at {date} with {weight_t} {calories_tm1}")
