@@ -54,3 +54,13 @@ htmlcov/
 *.swp
 *.swo
 
+# ==========================================
+# Build Artifacts, Distribution, and Egg Info
+# ==========================================
+*.egg-info/
+*.egg
+build/
+dist/
+wheels/
+sdist/
+
