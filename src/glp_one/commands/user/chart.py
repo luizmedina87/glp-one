@@ -27,11 +27,22 @@ def plot_weight(username: str) -> None:
     fig.title(f"Weight History — {username}")
     fig.label("Date", axis="x")
     fig.label("Weight", axis="y")
-    sig = fig.signal(list(timestamps), list(weights), marker="dot").label()
+    sig = fig.signal(list(timestamps), list(weights), marker="fhd").lines()
     fig.draw(sig)
     fig.show()
 
 
+def plot_calories(username: str) -> None:
+    ...
+
+
 @app.command()
-def chart(username: Annotated[str, typer.Argument()]):
-    plot_weight(username)
+def chart(
+    username: Annotated[str, typer.Argument()],
+    weight: Annotated[bool, typer.Option("--wheight", "-w")] = False,
+    calories: Annotated[bool, typer.Option("--calories", "-c")] = False
+    ):
+    if weight:
+        plot_weight(username)
+    if calories:
+        plot_calories(username)
