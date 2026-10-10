@@ -159,3 +159,6 @@ class User:
     def delete(self) -> None:
         if self.exists():
             self.data_path.unlink()
+
+    def update(self) -> None:
+        ...
