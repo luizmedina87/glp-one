@@ -382,3 +382,43 @@ def test_insert_out_of_order_between_logs():
     assert user_log.logs[1].entry_date == date(2025, 10, 2)
     assert user_log.logs[1].weight_t == 70.5  # Populates data instead of leaving it None
     assert user_log.logs[1].calories_tm1 == 2000
+
+
+def test_fill_gap_interpolates_weight_and_calories():
+    # Day 1: 70.0 kg
+    day_one = DailyLog(entry_date=date(2025, 10, 1), weight_t=70.0, calories_tm1=2000)
+    # Day 3: 69.4 kg (2-day gap, losing 0.6 kg total -> 0.3 kg/day drop)
+    day_three = DailyLog(entry_date=date(2025, 10, 3), weight_t=69.4, calories_tm1=2100)
+    
+    user_log = UserLog([day_one])
+    
+    # Standard call — no extra kwargs needed on log_entry!
+    user_log.log_entry(day_three)
+
+    # Should contain [Oct 1, Oct 2, Oct 3]
+    assert len(user_log.logs) == 3
+    
+    middle_log = user_log.logs[1]
+    assert middle_log.entry_date == date(2025, 10, 2)
+    
+    # Weight should be exactly halfway: 69.7 kg
+    assert middle_log.weight_t == 69.7
+    
+    # Verify that calories and deficit clamping computed successfully
+    assert middle_log.calories_tm1 is not None
+
+
+def test_fill_gap_without_weight():
+    day_one = DailyLog(entry_date=date(2025, 10, 1), weight_t=70.0, calories_tm1=2000)
+    day_three = DailyLog(entry_date=date(2025, 10, 3), weight_t=None, calories_tm1=None)
+    
+    user_log = UserLog([day_one])
+    user_log.log_entry(day_three)
+
+    assert len(user_log.logs) == 3
+    middle_log = user_log.logs[1]
+    
+    # Should leave interpolated fields as None when weight is missing
+    assert middle_log.entry_date == date(2025, 10, 2)
+    assert middle_log.weight_t is None
+    assert middle_log.calories_tm1 is None

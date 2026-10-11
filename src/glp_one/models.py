@@ -4,7 +4,13 @@ import json
 
 from datetime import date, timedelta
 from pathlib import Path
-from glp_one.config import get_data_dir
+from glp_one.config import (
+    get_data_dir, 
+    WEIGHT_MULTIPLIER, 
+    CALORIES_PER_KILOGRAM,
+    DEFAULT_MAX_DEFICIT,
+    DEFAULT_MAX_SURPLUS
+    )
 
 
 class DailyLog:
@@ -90,15 +96,38 @@ class UserLog:
         self.sort()
         self.fill_gap(daily_log)
 
-    def fill_gap(self, daily_log: DailyLog) -> None:
+    def fill_gap(
+            self, 
+            daily_log: DailyLog, 
+            weight_mult: int = WEIGHT_MULTIPLIER,
+            cal_per_kg: int = CALORIES_PER_KILOGRAM,
+            def_max_def: int = DEFAULT_MAX_DEFICIT,
+            def_max_surp: int = DEFAULT_MAX_SURPLUS
+            ) -> None:
         idx = self.find_log(daily_log.entry_date)
+
         if idx != 0:
             prev_log = self.logs[idx - 1]
-            prev_date = prev_log.entry_date
-            delta = daily_log.entry_date - prev_date
+            delta = daily_log.entry_date - prev_log.entry_date
+
             for i in range(1, delta.days):
-                new_date = prev_date + timedelta(days=i)
-                new_log = DailyLog(entry_date=new_date, weight_t=None, calories_tm1=None)
+                new_date = prev_log.entry_date + timedelta(days=i)
+
+                if daily_log.weight_t:
+                    weight_diff = (daily_log.weight_t - prev_log.weight_t) / delta.days
+                    new_weight = prev_log.weight_t + weight_diff * i
+                    kcal_diff = weight_diff * cal_per_kg
+                    capped_kcal_diff = max(def_max_def, min(def_max_surp, kcal_diff))
+                    new_kcal = new_weight * weight_mult + capped_kcal_diff
+                else:
+                    new_weight = None
+                    new_kcal = None
+
+                new_log = DailyLog(
+                    entry_date=new_date, 
+                    weight_t=new_weight,
+                    calories_tm1=new_kcal
+                    )
                 self.log_entry(new_log)
                 
     def sort(self) -> None:
