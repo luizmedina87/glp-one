@@ -10,15 +10,12 @@ app = typer.Typer()
 def upsert(
         username: Annotated[str, typer.Argument()], 
         date: Annotated[str, typer.Option("--date", "-d")], 
-        weight_t: Annotated[str, typer.Option("--weight", "-w", help="Weight measured as of date.")] = None, 
+        weight_t: Annotated[str, typer.Option("--weight", "-w", help="Weight measured as of date.")], 
         calories_tm1: Annotated[int, typer.Option("--calories", "-c", help="Calories consumed in t-1")] = None
     ):
     user = User.load_or_create(username)
     if not user.data_path.exists():
         print(f"{username} doesn't exist. Upsert canceled.")
-        return
-    if not (weight_t or calories_tm1):
-        print(f"Provide either weight or calories. Upsert canceled")
         return
     new_log = DailyLog(date, weight_t, calories_tm1)
     user.user_log.upsert_entry(new_log)
