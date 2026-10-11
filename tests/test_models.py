@@ -325,3 +325,60 @@ def test_user_rename(tmp_path, monkeypatch, sample_tracker):
     # Verify content was preserved
     loaded_content = json.loads(new_file.read_text(encoding="utf-8"))
     assert len(loaded_content["logs"]) == len(sample_tracker.logs)
+
+
+def test_fill_single_day_gap():
+    day_one = DailyLog(date(2025, 10, 1), None, None)
+    day_three = DailyLog(date(2025, 10, 3), None, None)
+    user_log = UserLog([day_one])
+    user_log.log_entry(day_three)
+
+    assert len(user_log.logs) == 3
+    assert user_log.logs[0].entry_date == date(2025, 10, 1)
+    assert user_log.logs[1].entry_date == date(2025, 10, 2)  # Filled gap
+    assert user_log.logs[2].entry_date == date(2025, 10, 3)
+    assert user_log.logs[1].weight_t is None
+
+def test_fill_multi_day_gap():
+    day_one = DailyLog(date(2025, 10, 1), None, None)
+    day_five = DailyLog(date(2025, 10, 5), None, None)
+    user_log = UserLog([day_one])
+    user_log.log_entry(day_five)
+
+    assert len(user_log.logs) == 5
+    expected_dates = [
+        date(2025, 10, 1),
+        date(2025, 10, 2),
+        date(2025, 10, 3),
+        date(2025, 10, 4),
+        date(2025, 10, 5),
+    ]
+    for log, exp_date in zip(user_log.logs, expected_dates):
+        assert log.entry_date == exp_date
+        if exp_date not in (date(2025, 10, 1), date(2025, 10, 5)):
+            assert log.weight_t is None
+
+def test_no_gap_consecutive_days():
+    day_one = DailyLog(date(2025, 10, 1), 70.0, None)
+    day_two = DailyLog(date(2025, 10, 2), 69.8, None)
+    user_log = UserLog([day_one])
+    user_log.log_entry(day_two)
+
+    assert len(user_log.logs) == 2
+    assert user_log.logs[0].entry_date == date(2025, 10, 1)
+    assert user_log.logs[1].entry_date == date(2025, 10, 2)
+    assert user_log.logs[1].weight_t == 69.8  # Preserves provided values
+
+def test_insert_out_of_order_between_logs():
+    day_one = DailyLog(date(2025, 10, 1), None, None)
+    day_three = DailyLog(date(2025, 10, 3), None, None)
+    user_log = UserLog([day_one, day_three])
+    
+    # Log an entry for the missing day in between later
+    day_two = DailyLog(date(2025, 10, 2), 70.5, 2000)
+    user_log.log_entry(day_two)
+
+    assert len(user_log.logs) == 3
+    assert user_log.logs[1].entry_date == date(2025, 10, 2)
+    assert user_log.logs[1].weight_t == 70.5  # Populates data instead of leaving it None
+    assert user_log.logs[1].calories_tm1 == 2000

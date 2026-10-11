@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from glp_one.config import get_data_dir
 
@@ -60,6 +60,12 @@ class DailyLog:
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), indent=2)
 
+    def next_day(self) -> timedelta:
+        return self.entry_date + timedelta(days=1)
+
+    def prev_day(self) -> timedelta:
+        return self.entry_date - timedelta(days=1)
+
 
 
 class UserLog:
@@ -82,7 +88,19 @@ class UserLog:
     def log_entry(self, daily_log: DailyLog) -> None:
         self.logs.append(daily_log)
         self.sort()
+        self.fill_gap(daily_log)
 
+    def fill_gap(self, daily_log: DailyLog) -> None:
+        idx = self.find_log(daily_log.entry_date)
+        if idx != 0:
+            prev_log = self.logs[idx - 1]
+            prev_date = prev_log.entry_date
+            delta = daily_log.entry_date - prev_date
+            for i in range(1, delta.days):
+                new_date = prev_date + timedelta(days=i)
+                new_log = DailyLog(entry_date=new_date, weight_t=None, calories_tm1=None)
+                self.log_entry(new_log)
+                
     def sort(self) -> None:
         self.logs.sort(key=lambda entry: entry.entry_date)
 
@@ -118,7 +136,7 @@ class UserLog:
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), indent=2)
 
-
+    
 class User:
     def __init__(self, user_name: str, user_log: UserLog | None = None):
         self.user_name: str = user_name
