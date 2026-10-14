@@ -11,7 +11,7 @@ def upsert(
         username: Annotated[str, typer.Argument()], 
         date: Annotated[str, typer.Option("--date", "-d")], 
         weight_t: Annotated[str, typer.Option("--weight", "-w", help="Weight measured as of date.")], 
-        calories_tm1: Annotated[int, typer.Option("--calories", "-c", help="Calories consumed in t-1")] = None
+        calories_tm1: Annotated[int, typer.Option("--calories", "-c", help="Calories consumed in t-1")]
     ):
     user = User.load_or_create(username)
     if not user.data_path.exists():
