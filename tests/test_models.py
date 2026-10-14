@@ -3,7 +3,13 @@ import json
 from datetime import date
 from pathlib import Path
 from src.glp_one.models import DailyLog, UserLog, User
-from src.glp_one.config import APP_NAME
+from src.glp_one.config import (
+    APP_NAME,
+    WEIGHT_MULTIPLIER,
+    CALORIES_PER_KILOGRAM,
+    WEIGHT_DECAY,
+    TDEE_DECAY
+    )
 
 
 def test_daily_log_initialization():
@@ -393,10 +399,74 @@ def test_fill_gap_without_weight():
     day_three = DailyLog(entry_date=date(2025, 10, 3), weight_t=None, calories_tm1=None)
     
     user_log = UserLog([day_one])
-    middle_log = user_log.logs[1]
     user_log.log_entry(day_three)
+    middle_log = user_log.logs[1]
 
     assert len(user_log.logs) == 3
     assert middle_log.entry_date == date(2025, 10, 2)
     assert middle_log.weight_t is None
     assert middle_log.calories_tm1 is None
+
+
+def test_user_log_compute_requires_minimum_logs():
+    # Less than 2 logs should return early without throwing errors
+    user_log = UserLog([DailyLog(entry_date=date(2025, 10, 1), weight_t=70.0, calories_tm1=2000)])
+    user_log.compute()
+    
+    # First log should remain un-smoothed/none for computed metrics
+    assert user_log.logs[0].weight_smoothed_t is None
+    assert user_log.logs[0].tdee_smoothed_t is None
+
+
+def test_user_log_compute_initializes_first_day():
+    day_one = DailyLog(entry_date=date(2025, 10, 1), weight_t=70.0, calories_tm1=2000)
+    day_two = DailyLog(entry_date=date(2025, 10, 2), weight_t=69.8, calories_tm1=2100)
+    
+    user_log = UserLog([day_one, day_two])
+    user_log.compute()
+    
+    # Day 0 initialization check
+    assert day_one.weight_smoothed_t == 70.0
+    assert day_one.tdee_smoothed_t == 70.0 * WEIGHT_MULTIPLIER
+
+
+def test_user_log_compute_calculates_subsequent_smoothed_values():
+    day_one = DailyLog(entry_date=date(2025, 10, 1), weight_t=70.0, calories_tm1=2000)
+    day_two = DailyLog(entry_date=date(2025, 10, 2), weight_t=69.8, calories_tm1=2100)
+    
+    user_log = UserLog([day_one, day_two])
+    user_log.compute()
+    
+    # Manually compute expected values for Day 2 based on your logic
+    expected_weight_smoothed = 69.8 * WEIGHT_DECAY + 70.0 * (1 - WEIGHT_DECAY)
+    delta_weight = expected_weight_smoothed - 70.0
+    expected_tdee_t = 2100 - delta_weight * CALORIES_PER_KILOGRAM
+    expected_tdee_smoothed = expected_tdee_t * TDEE_DECAY + (70.0 * WEIGHT_MULTIPLIER) * (1 - TDEE_DECAY)
+    
+    # Use built-in round() for floating-point comparisons instead of pytest.approx()
+    assert round(day_two.weight_smoothed_t, 4) == round(expected_weight_smoothed, 4)
+    assert round(day_two.tdee_t, 4) == round(expected_tdee_t, 4)
+    assert round(day_two.tdee_smoothed_t, 4) == round(expected_tdee_smoothed, 4)
+
+
+def test_user_update_triggers_compute(tmp_path, monkeypatch):
+    # Mock data directory to use pytest's temporary path fixture so tests don't touch real files
+    monkeypatch.setattr("glp_one.models.get_data_dir", lambda: tmp_path)
+    
+    day_one = DailyLog(entry_date=date(2025, 10, 1), weight_t=70.0, calories_tm1=2000)
+    day_two = DailyLog(entry_date=date(2025, 10, 2), weight_t=69.5, calories_tm1=2100)
+    
+    user_log = UserLog([day_one, day_two])
+    user = User(user_name="test_user", user_log=user_log)
+    
+    # Before update, computed fields are None
+    assert day_two.weight_smoothed_t is None
+    assert day_two.tdee_t is None
+    
+    # Run User.update() which calls user_log.compute()
+    user.update()
+    
+    # After update, computed fields should be populated
+    assert day_two.weight_smoothed_t is not None
+    assert day_two.tdee_t is not None
+    assert day_two.tdee_smoothed_t is not None

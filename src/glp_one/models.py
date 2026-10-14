@@ -9,7 +9,9 @@ from glp_one.config import (
     WEIGHT_MULTIPLIER, 
     CALORIES_PER_KILOGRAM,
     DEFAULT_MAX_DEFICIT,
-    DEFAULT_MAX_SURPLUS
+    DEFAULT_MAX_SURPLUS,
+    WEIGHT_DECAY,
+    TDEE_DECAY
     )
 
 
@@ -124,9 +126,9 @@ class UserLog:
                     new_kcal = None
 
                 new_log = DailyLog(
-                    entry_date=new_date, 
-                    weight_t=new_weight,
-                    calories_tm1=new_kcal
+                    entry_date = new_date, 
+                    weight_t = round(new_weight, 1),
+                    calories_tm1 = int(new_kcal)
                     )
                 self.log_entry(new_log)
                 
@@ -164,6 +166,19 @@ class UserLog:
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), indent=2)
+
+    def compute(self) -> str:
+        if len(self.logs) < 2:
+            return # You need at least two days of logs to compute TDEE and EWMA
+        initial_log = self.logs[0]
+        initial_log.weight_smoothed_t = initial_log.weight_t
+        initial_log.tdee_smoothed_t = initial_log.weight_t * WEIGHT_MULTIPLIER
+        for i, log in enumerate(self.logs[1:], start=1):
+            prev_log = self.logs[i - 1]
+            log.weight_smoothed_t = round(log.weight_t * WEIGHT_DECAY + prev_log.weight_smoothed_t * (1 - WEIGHT_DECAY), 1)
+            delta_weight = log.weight_smoothed_t - prev_log.weight_smoothed_t
+            log.tdee_t = int(log.calories_tm1 - delta_weight * CALORIES_PER_KILOGRAM)
+            log.tdee_smoothed_t = int(log.tdee_t * TDEE_DECAY + prev_log.tdee_smoothed_t * (1 - TDEE_DECAY))
 
     
 class User:
@@ -208,4 +223,6 @@ class User:
             self.data_path.unlink()
 
     def update(self) -> None:
-        ...
+        if self.user_log:
+            self.user_log.compute()
+            self.save()
