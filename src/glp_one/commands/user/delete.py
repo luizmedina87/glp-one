@@ -8,7 +8,7 @@ app = typer.Typer()
 
 @app.command()
 def delete(username: Annotated[str, typer.Argument()]):
-    user = User.load_or_create("Luiz")
+    user = User.load_or_create(username)
     if user.data_path.exists():
         user.delete()
         print(f"{username} deleted.")
