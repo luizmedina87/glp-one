@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 # Application Metadata
 APP_NAME = "glp_one"
 
@@ -18,3 +17,5 @@ DEFAULT_MAX_DEFICIT: int = -500
 DEFAULT_MAX_SURPLUS: int = 1000
 WEIGHT_DECAY: float = 0.2
 TDEE_DECAY: float = 0.1
+WEEKLY_CUT_SPEED: float = 0.005
+WEEKLY_BULK_SPEED: float = 0.005

@@ -2,13 +2,20 @@ import json
 
 from datetime import date
 from pathlib import Path
-from src.glp_one.models import DailyLog, UserLog, User
+from src.glp_one.models import (
+    DailyLog, 
+    UserLog, 
+    User,
+    Goal
+    )
 from src.glp_one.config import (
     APP_NAME,
     WEIGHT_MULTIPLIER,
     CALORIES_PER_KILOGRAM,
     WEIGHT_DECAY,
-    TDEE_DECAY
+    TDEE_DECAY,
+    WEEKLY_BULK_SPEED,
+    WEEKLY_CUT_SPEED
     )
 
 
@@ -409,11 +416,9 @@ def test_fill_gap_without_weight():
 
 
 def test_user_log_compute_requires_minimum_logs():
-    # Less than 2 logs should return early without throwing errors
     user_log = UserLog([DailyLog(entry_date=date(2025, 10, 1), weight_t=70.0, calories_tm1=2000)])
     user_log.compute()
     
-    # First log should remain un-smoothed/none for computed metrics
     assert user_log.logs[0].weight_smoothed_t is None
     assert user_log.logs[0].tdee_smoothed_t is None
 
@@ -425,7 +430,6 @@ def test_user_log_compute_initializes_first_day():
     user_log = UserLog([day_one, day_two])
     user_log.compute()
     
-    # Day 0 initialization check
     assert day_one.weight_smoothed_t == 70.0
     assert day_one.tdee_smoothed_t == 70.0 * WEIGHT_MULTIPLIER
 
@@ -437,20 +441,17 @@ def test_user_log_compute_calculates_subsequent_smoothed_values():
     user_log = UserLog([day_one, day_two])
     user_log.compute()
     
-    # Manually compute expected values for Day 2 based on your logic
-    expected_weight_smoothed = 69.8 * WEIGHT_DECAY + 70.0 * (1 - WEIGHT_DECAY)
+    expected_weight_smoothed = round(69.8 * WEIGHT_DECAY + 70.0 * (1 - WEIGHT_DECAY), 1)
     delta_weight = expected_weight_smoothed - 70.0
     expected_tdee_t = 2100 - delta_weight * CALORIES_PER_KILOGRAM
-    expected_tdee_smoothed = expected_tdee_t * TDEE_DECAY + (70.0 * WEIGHT_MULTIPLIER) * (1 - TDEE_DECAY)
+    expected_tdee_smoothed = int(expected_tdee_t * TDEE_DECAY + (70.0 * WEIGHT_MULTIPLIER) * (1 - TDEE_DECAY))
     
-    # Use built-in round() for floating-point comparisons instead of pytest.approx()
     assert round(day_two.weight_smoothed_t, 4) == round(expected_weight_smoothed, 4)
     assert round(day_two.tdee_t, 4) == round(expected_tdee_t, 4)
     assert round(day_two.tdee_smoothed_t, 4) == round(expected_tdee_smoothed, 4)
 
 
 def test_user_update_triggers_compute(tmp_path, monkeypatch):
-    # Mock data directory to use pytest's temporary path fixture so tests don't touch real files
     monkeypatch.setattr("glp_one.models.get_data_dir", lambda: tmp_path)
     
     day_one = DailyLog(entry_date=date(2025, 10, 1), weight_t=70.0, calories_tm1=2000)
@@ -459,14 +460,72 @@ def test_user_update_triggers_compute(tmp_path, monkeypatch):
     user_log = UserLog([day_one, day_two])
     user = User(user_name="test_user", user_log=user_log)
     
-    # Before update, computed fields are None
     assert day_two.weight_smoothed_t is None
     assert day_two.tdee_t is None
     
-    # Run User.update() which calls user_log.compute()
     user.update()
     
-    # After update, computed fields should be populated
     assert day_two.weight_smoothed_t is not None
     assert day_two.tdee_t is not None
     assert day_two.tdee_smoothed_t is not None
+
+
+def test_calculate_goal_maintain():
+    user = User(user_name="test_user", goal=Goal.MAINTAIN)
+    user.user_log.logs = [
+        DailyLog(
+            entry_date=date(2026, 10, 1),
+            weight_t=70.0,
+            calories_tm1=2200,
+            weight_smoothed_t=70.0,
+            tdee_t=2200,
+            tdee_smoothed_t=2200
+        )
+    ]    
+    target_calories = user.calculate_goal()
+
+    assert target_calories == 2200
+
+
+def test_calculate_goal_cut():
+    user = User(user_name="test_user", goal=Goal.CUT)
+    user.user_log.logs = [
+        DailyLog(
+            entry_date=date(2026, 10, 1),
+            weight_t=70.0,
+            calories_tm1=2400,
+            weight_smoothed_t=70.0,
+            tdee_t=2400,
+            tdee_smoothed_t=2400
+        )
+    ]
+    
+    target_calories = user.calculate_goal()
+    
+    daily_cut_speed = WEEKLY_CUT_SPEED / 7
+    body_kcal = 70.0 * CALORIES_PER_KILOGRAM
+    expected = 2400 - body_kcal * daily_cut_speed
+    
+    assert target_calories == expected
+
+
+def test_calculate_goal_bulk():
+    user = User(user_name="test_user", goal=Goal.BULK)
+    user.user_log.logs = [
+        DailyLog(
+            entry_date=date(2026, 10, 1),
+            weight_t=70.0,
+            calories_tm1=2000,
+            weight_smoothed_t=70.0,
+            tdee_t=2000,
+            tdee_smoothed_t=2000
+        )
+    ]
+    
+    target_calories = user.calculate_goal()
+    
+    daily_bulk_speed = WEEKLY_BULK_SPEED / 7
+    body_kcal = 70.0 * CALORIES_PER_KILOGRAM
+    expected = 2000 + body_kcal * daily_bulk_speed
+    
+    assert target_calories == expected

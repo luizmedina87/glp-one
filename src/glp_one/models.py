@@ -11,7 +11,9 @@ from glp_one.config import (
     DEFAULT_MAX_DEFICIT,
     DEFAULT_MAX_SURPLUS,
     WEIGHT_DECAY,
-    TDEE_DECAY
+    TDEE_DECAY,
+    WEEKLY_BULK_SPEED,
+    WEEKLY_CUT_SPEED
     )
 
 
@@ -117,18 +119,18 @@ class UserLog:
 
                 if daily_log.weight_t:
                     weight_diff = (daily_log.weight_t - prev_log.weight_t) / delta.days
-                    new_weight = prev_log.weight_t + weight_diff * i
+                    new_weight = round(prev_log.weight_t + weight_diff * i, 1)
                     kcal_diff = weight_diff * cal_per_kg
                     capped_kcal_diff = max(def_max_def, min(def_max_surp, kcal_diff))
-                    new_kcal = new_weight * weight_mult + capped_kcal_diff
+                    new_kcal = int(new_weight * weight_mult + capped_kcal_diff)
                 else:
                     new_weight = None
                     new_kcal = None
 
                 new_log = DailyLog(
                     entry_date = new_date, 
-                    weight_t = round(new_weight, 1),
-                    calories_tm1 = int(new_kcal)
+                    weight_t = new_weight,
+                    calories_tm1 = new_kcal
                     )
                 self.log_entry(new_log)
                 
@@ -226,3 +228,14 @@ class User:
         if self.user_log:
             self.user_log.compute()
             self.save()
+
+    def calculate_goal(self) -> int:
+        last_entry: DailyLog = self.user_log.logs[-1]
+        last_tdee: int = last_entry.tdee_smoothed_t
+        daily_cut_speed = WEEKLY_CUT_SPEED / 7
+        daily_bulk_speed = WEEKLY_BULK_SPEED / 7
+        bodly_kcal = last_entry.weight_smoothed_t * CALORIES_PER_KILOGRAM
+        cut = last_tdee - bodly_kcal * daily_cut_speed
+        maintain = last_tdee
+        bulk = last_tdee + bodly_kcal * daily_bulk_speed
+        return cut, maintain, bulk
