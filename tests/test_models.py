@@ -45,19 +45,16 @@ def test_daily_log_to_json():
 
 
 def test_sample_tracker_length(sample_tracker):
-    # sample_tracker from conftest.py
     assert isinstance(sample_tracker, UserLog)
     assert len(sample_tracker.logs) == 36
 
 
 def test_sample_tracker_chronological_order(sample_tracker):
-    # Verifies sorting logic puts earliest date first
     assert sample_tracker.logs[0].entry_date == date(2026, 7, 3)
     assert sample_tracker.logs[-1].entry_date == date(2026, 8, 7)
 
 
 def test_sample_tracker_missing_calories(sample_tracker):
-    # Verifies July 27 entry handled None for calories correctly
     july_27_log = next(
         log for log in sample_tracker.logs if log.entry_date == date(2026, 7, 27)
     )
@@ -86,7 +83,6 @@ def test_user_log_to_json(sample_tracker):
 
 
 def test_user_save(tmp_path, monkeypatch, sample_tracker):
-    # Redirect Path.home() to pytest's temporary directory
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     user = User(user_name="test_user")
@@ -261,13 +257,12 @@ def test_user_log_upsert_entry_update():
         ]
     )
 
-    # Overwrite the entry for the same date
     updated_log = DailyLog(
         entry_date=target_date, weight_t=72.5, calories_tm1=2200
     )
     user_log.upsert_entry(updated_log)
 
-    assert len(user_log.logs) == 1  # No duplicate created
+    assert len(user_log.logs) == 1
     entry = user_log.get_entry(target_date)
     assert entry is not None
     assert entry.weight_t == 72.5
@@ -282,11 +277,8 @@ def test_user_log_delete_entry():
         ]
     )
 
-    # Delete non-existent entry
     assert user_log.delete_entry(date(2026, 10, 9)) is False
     assert len(user_log.logs) == 1
-
-    # Delete existing entry
     assert user_log.delete_entry(target_date) is True
     assert len(user_log.logs) == 0
     assert user_log.get_entry(target_date) is None
@@ -305,7 +297,6 @@ def test_user_get_data_path(tmp_path, monkeypatch):
 def test_user_rename(tmp_path, monkeypatch, sample_tracker):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-    # Save initial user
     user = User(user_name="old_name", user_log=sample_tracker)
     user.save()
 
@@ -315,14 +306,12 @@ def test_user_rename(tmp_path, monkeypatch, sample_tracker):
     assert old_file.exists()
     assert not new_file.exists()
 
-    # Rename
     user.rename("new_name")
 
     assert user.user_name == "new_name"
     assert not old_file.exists()
     assert new_file.exists()
 
-    # Verify content was preserved
     loaded_content = json.loads(new_file.read_text(encoding="utf-8"))
     assert len(loaded_content["logs"]) == len(sample_tracker.logs)
 
@@ -335,9 +324,10 @@ def test_fill_single_day_gap():
 
     assert len(user_log.logs) == 3
     assert user_log.logs[0].entry_date == date(2025, 10, 1)
-    assert user_log.logs[1].entry_date == date(2025, 10, 2)  # Filled gap
+    assert user_log.logs[1].entry_date == date(2025, 10, 2)
     assert user_log.logs[2].entry_date == date(2025, 10, 3)
     assert user_log.logs[1].weight_t is None
+
 
 def test_fill_multi_day_gap():
     day_one = DailyLog(date(2025, 10, 1), None, None)
@@ -358,6 +348,7 @@ def test_fill_multi_day_gap():
         if exp_date not in (date(2025, 10, 1), date(2025, 10, 5)):
             assert log.weight_t is None
 
+
 def test_no_gap_consecutive_days():
     day_one = DailyLog(date(2025, 10, 1), 70.0, None)
     day_two = DailyLog(date(2025, 10, 2), 69.8, None)
@@ -367,44 +358,33 @@ def test_no_gap_consecutive_days():
     assert len(user_log.logs) == 2
     assert user_log.logs[0].entry_date == date(2025, 10, 1)
     assert user_log.logs[1].entry_date == date(2025, 10, 2)
-    assert user_log.logs[1].weight_t == 69.8  # Preserves provided values
+    assert user_log.logs[1].weight_t == 69.8
+
 
 def test_insert_out_of_order_between_logs():
     day_one = DailyLog(date(2025, 10, 1), None, None)
     day_three = DailyLog(date(2025, 10, 3), None, None)
     user_log = UserLog([day_one, day_three])
-    
-    # Log an entry for the missing day in between later
     day_two = DailyLog(date(2025, 10, 2), 70.5, 2000)
     user_log.log_entry(day_two)
 
     assert len(user_log.logs) == 3
     assert user_log.logs[1].entry_date == date(2025, 10, 2)
-    assert user_log.logs[1].weight_t == 70.5  # Populates data instead of leaving it None
+    assert user_log.logs[1].weight_t == 70.5
     assert user_log.logs[1].calories_tm1 == 2000
 
 
 def test_fill_gap_interpolates_weight_and_calories():
-    # Day 1: 70.0 kg
     day_one = DailyLog(entry_date=date(2025, 10, 1), weight_t=70.0, calories_tm1=2000)
-    # Day 3: 69.4 kg (2-day gap, losing 0.6 kg total -> 0.3 kg/day drop)
     day_three = DailyLog(entry_date=date(2025, 10, 3), weight_t=69.4, calories_tm1=2100)
     
     user_log = UserLog([day_one])
-    
-    # Standard call — no extra kwargs needed on log_entry!
     user_log.log_entry(day_three)
-
-    # Should contain [Oct 1, Oct 2, Oct 3]
-    assert len(user_log.logs) == 3
-    
     middle_log = user_log.logs[1]
+
+    assert len(user_log.logs) == 3
     assert middle_log.entry_date == date(2025, 10, 2)
-    
-    # Weight should be exactly halfway: 69.7 kg
     assert middle_log.weight_t == 69.7
-    
-    # Verify that calories and deficit clamping computed successfully
     assert middle_log.calories_tm1 is not None
 
 
@@ -413,12 +393,10 @@ def test_fill_gap_without_weight():
     day_three = DailyLog(entry_date=date(2025, 10, 3), weight_t=None, calories_tm1=None)
     
     user_log = UserLog([day_one])
+    middle_log = user_log.logs[1]
     user_log.log_entry(day_three)
 
     assert len(user_log.logs) == 3
-    middle_log = user_log.logs[1]
-    
-    # Should leave interpolated fields as None when weight is missing
     assert middle_log.entry_date == date(2025, 10, 2)
     assert middle_log.weight_t is None
     assert middle_log.calories_tm1 is None
