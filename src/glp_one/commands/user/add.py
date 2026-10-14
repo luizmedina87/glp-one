@@ -7,7 +7,8 @@ from typing import Annotated
 app = typer.Typer()
 
 @app.command()
-def add(username: Annotated[str, typer.Argument()]):
+def add(username: Annotated[str, typer.Argument(help="The name of the user profile to create.")]):
+    """Create and save a new user profile JSON file if it doesn't already exist."""
     user = User.load_or_create(username)
     if user.data_path.exists():
         print(f"{username} already exists at {user.data_path}")

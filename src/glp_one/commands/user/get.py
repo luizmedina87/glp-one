@@ -30,7 +30,8 @@ def print_log_table(user: User) -> None:
     console.print(table)
 
 @app.command()
-def get(username: Annotated[str, typer.Argument()]):
+def get(username: Annotated[str, typer.Argument(help="The name of the user profile to retrieve logs for.")]):
+    """Display all daily logs, weights, and TDEE calculations for a user."""
     user: User = User.load_or_create(username)
     if user.exists():
         print_log_table(user)

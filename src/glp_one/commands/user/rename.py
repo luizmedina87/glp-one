@@ -7,9 +7,10 @@ app = typer.Typer()
 
 @app.command()
 def rename(
-    old_username: Annotated[str, typer.Argument()], 
-    new_username: Annotated[str, typer.Argument()]
+    old_username: Annotated[str, typer.Argument(help="The current name of the user profile.")], 
+    new_username: Annotated[str, typer.Argument(help="The new name for the user profile.")]
     ):
+    """Rename an existing user profile and update its associated data file name."""
     user = User.load_or_create(old_username)
     if user.data_path.exists():
         user.rename(new_username)
