@@ -5,17 +5,14 @@ from pathlib import Path
 from src.glp_one.models import (
     DailyLog, 
     UserLog, 
-    User,
-    Goal
+    User
     )
 from src.glp_one.config import (
     APP_NAME,
     WEIGHT_MULTIPLIER,
     CALORIES_PER_KILOGRAM,
     WEIGHT_DECAY,
-    TDEE_DECAY,
-    WEEKLY_BULK_SPEED,
-    WEEKLY_CUT_SPEED
+    TDEE_DECAY
     )
 
 
@@ -471,7 +468,7 @@ def test_user_update_triggers_compute(tmp_path, monkeypatch):
 
 
 def test_calculate_goal_maintain():
-    user = User(user_name="test_user", goal=Goal.MAINTAIN)
+    user = User(user_name="test_user")
     user.user_log.logs = [
         DailyLog(
             entry_date=date(2026, 10, 1),
@@ -482,13 +479,12 @@ def test_calculate_goal_maintain():
             tdee_smoothed_t=2200
         )
     ]    
-    target_calories = user.calculate_goal()
 
-    assert target_calories == 2200
+    assert user.calculate_goal() == (1815.0, 2200, 2585.0)
 
 
 def test_calculate_goal_cut():
-    user = User(user_name="test_user", goal=Goal.CUT)
+    user = User(user_name="test_user")
     user.user_log.logs = [
         DailyLog(
             entry_date=date(2026, 10, 1),
@@ -499,18 +495,12 @@ def test_calculate_goal_cut():
             tdee_smoothed_t=2400
         )
     ]
-    
-    target_calories = user.calculate_goal()
-    
-    daily_cut_speed = WEEKLY_CUT_SPEED / 7
-    body_kcal = 70.0 * CALORIES_PER_KILOGRAM
-    expected = 2400 - body_kcal * daily_cut_speed
-    
-    assert target_calories == expected
+
+    assert user.calculate_goal() == (2015.0, 2400, 2785.0)
 
 
 def test_calculate_goal_bulk():
-    user = User(user_name="test_user", goal=Goal.BULK)
+    user = User(user_name="test_user")
     user.user_log.logs = [
         DailyLog(
             entry_date=date(2026, 10, 1),
@@ -521,11 +511,5 @@ def test_calculate_goal_bulk():
             tdee_smoothed_t=2000
         )
     ]
-    
-    target_calories = user.calculate_goal()
-    
-    daily_bulk_speed = WEEKLY_BULK_SPEED / 7
-    body_kcal = 70.0 * CALORIES_PER_KILOGRAM
-    expected = 2000 + body_kcal * daily_bulk_speed
-    
-    assert target_calories == expected
+
+    assert user.calculate_goal() == (1615.0, 2000, 2385.0)
